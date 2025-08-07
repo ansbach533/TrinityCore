@@ -3788,7 +3788,7 @@ void TSPlayer::SendMail(uint8 senderType, uint64 from, std::string const& subjec
     MailDraft draft(subject,body);
     draft.AddMoney(money);
     draft.AddCOD(cod);
-    CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
+    CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction("TSPlayer::SendMail");
 
     for(int i=0;i<items.get_length();++i)
     {

@@ -1,5 +1,5 @@
 import { Args } from "../util/Args";
-import { BuildType, BUILD_TYPES } from "../util/BuildType";
+import { BuildTypeObj, parseBuildTypes } from "../util/BuildType";
 import { ConfigFile, Property, Section } from "../util/ConfigFile";
 import { mpath, wfs } from "../util/FileSystem";
 import { WFile } from "../util/FileTree";
@@ -20,6 +20,7 @@ import { Module, ModuleEndpoint } from "./Modules";
 import { NodeExecutable } from "./Node";
 import { NodeConfig } from "./NodeConfig";
 import { applyTSTLHack } from "./TSTLHack";
+import * as os from 'os';
 
 const livescript_example =
 `export function Main(events: TSEvents) {
@@ -59,7 +60,10 @@ const temp_config = (dataset: Dataset) => ({
     'forceConsistentCasingInFileNames': true
 },
     'include': ['./shared','./livescripts'],
-    'exclude': ['./livescripts/build/lib']
+    'exclude': [
+        './livescripts/build/*/cpp/**',
+        './livescripts/build/*/lib/**'
+    ]
 });
 
 export class LiveScriptsConfig extends ConfigFile {
@@ -240,7 +244,7 @@ export class Livescripts {
         term.success(this.logName(),`Finished building lua`)
     }
 
-    private buildCxx(dataset: Dataset, buildType: BuildType, args: string[] = []) {
+    private buildCxx(dataset: Dataset, buildType: BuildTypeObj, args: string[] = []) {
         let tracyArg = args.find(x=>x.startsWith('tracy'))
 
         this.mod.path.livescript_tsconfig_temp.writeJson(temp_config(dataset))
@@ -284,15 +288,21 @@ export class Livescripts {
             });
 
         builddir.cpp.cmakelists_txt
-            .write(getLivescriptCMakeLists(dataset.config.EmulatorCore,buildType,this.mod.fullName))
+            .write(getLivescriptCMakeLists(dataset.config.EmulatorCore,buildType.Name,this.mod.fullName))
 
-            const cmake_generate =
-            (isWindows()
-                ? `"bin/cmake/bin/cmake.exe" -G "Visual Studio 17 2022" -DCMAKE_GENERATOR="Visual Studio 17 2022"`
-                : 'cmake')
-            + ` -DTRACY_ENABLE="${Args.hasFlag('tracy',args) ? 'ON': 'OFF'}"`
-            + ` -S ${builddir.cpp.abs()}`
-            + ` -B ${builddir.lib.abs()}`
+            let cmake_generate = ``
+            if (isWindows()) {
+                cmake_generate += `"bin/cmake/bin/cmake.exe" -G "Visual Studio 17 2022" -DCMAKE_GENERATOR="Visual Studio 17 2022"`
+                cmake_generate += ` ${buildType.LivescriptCMakeFlagsWindows}`
+            } else {
+                cmake_generate += `cmake`
+                cmake_generate += ` ${buildType.LivescriptCmakeFlagsLinux}`
+            }
+
+            cmake_generate += ` -DTRACY_ENABLE="${Args.hasFlag('tracy',args) ? 'ON': 'OFF'}"`
+                + ` -DCMAKE_BUILD_TYPE=${buildType.Type}`
+                + ` -S ${builddir.cpp.abs()}`
+                + ` -B ${builddir.lib.build(buildType.Name).abs()}`
         try {
             term.log(this.logName(),`Generating CMake project...`)
             wsys.exec(cmake_generate, !process.argv.includes('--silent')?'inherit':'ignore');
@@ -303,8 +313,9 @@ export class Livescripts {
             (isWindows()
                 ? `"bin/cmake/bin/cmake.exe"`
                 : `cmake`)
-            + ` --build ${builddir.lib.abs()}`
-            + ` --config ${buildType}`;
+            + ` --build ${builddir.lib.build(buildType.Name).abs()}`
+            + (isWindows() ? `` : ` -j${os.cpus().length}`)
+            + ` --config ${buildType.Type}`;
 
         try {
             term.log(this.logName(),`Compiling C++ binary...`)
@@ -313,11 +324,26 @@ export class Livescripts {
             term.error(this.logName(),`Failed to compile library, please report this error`);
         }
 
-        let lib = builddir.built_libs.pick(buildType).library
-        lib.copy(this.cxxInstallPath(dataset, buildType))
+        let libDir = (() => {
+            if (isWindows()) {
+                return builddir.lib.build(buildType.Name).join(buildType.Type)
+            } else {
+                return builddir.lib.build(buildType.Name)
+            }
+        })()
+
+        let lib = (() => {
+            if (isWindows()) {
+                return libDir.readDir('ABSOLUTE').find(x=>x.endsWith('.dll'))
+            } else {
+                return libDir.readDir('ABSOLUTE').find(x=>x.endsWith('.so'))
+            }
+        })()
+
+        lib.copy(this.cxxInstallPath(dataset, buildType.Name))
         if(isWindows()) {
-            let pdb = builddir.built_libs.pick(buildType).pdb;
-            pdb.copy(dataset.path.lib.join(buildType).join(pdb.basename()))
+            let pdb = libDir.readDir('ABSOLUTE').find(x=>x.endsWith('.pdb'));
+            pdb.copy(dataset.path.lib.join(buildType.Name).join(pdb.basename()))
         }
     }
 
@@ -325,13 +351,13 @@ export class Livescripts {
         return dataset.path.lib.lua.join(this.mod.fullName).abs();
     }
 
-    private cxxInstallPath(dataset: Dataset, buildType: BuildType) {
+    private cxxInstallPath(dataset: Dataset, buildType: string) {
         return isWindows()
             ? new WFile(mpath(dataset.path.lib,buildType,`${this.mod.fullName}.dll`))
             : new WFile(mpath(dataset.path.lib,buildType,`${this.mod.fullName}.so`))
     }
 
-    async build(dataset: Dataset, buildType: BuildType, args: string[] = []) {
+    async build(dataset: Dataset, buildType: BuildTypeObj, args: string[] = []) {
         // Init
         this.initialize();
         const timer = Timer.start();
@@ -340,10 +366,10 @@ export class Livescripts {
         // Delete old versions of the scripts
         if(!isTranspileOnly) {
             this.luaInstallPath(dataset).remove();
-            BUILD_TYPES.forEach(x=>{
-                dataset.path.lib.join(x,this.mod.fullName+'.dll').remove();
-                dataset.path.lib.join(x,this.mod.fullName+'.so').remove();
-                dataset.path.lib.join(x,this.mod.fullName+'.pdb').remove();
+            parseBuildTypes(ipaths.bin.build_conf).forEach(x=>{
+                dataset.path.lib.join(x.Name,this.mod.fullName+'.dll').remove();
+                dataset.path.lib.join(x.Name,this.mod.fullName+'.so').remove();
+                dataset.path.lib.join(x.Name,this.mod.fullName+'.pdb').remove();
             })
         }
 
@@ -398,8 +424,7 @@ export class Livescripts {
             , 'Comiles and hotswaps livescripts for select modules or'
             + 'modules within a dataset'
             , async args => {
-                const buildType = Identifier
-                    .getBuildType(args,NodeConfig.DefaultBuildType)
+                const buildTypes = Identifier.getBuildTypes(args, NodeConfig.DefaultBuildType)
 
                 const datasets = Identifier.getDatasets(
                       args
@@ -419,34 +444,36 @@ export class Livescripts {
                     }
                 }
 
-                // Build livescripts
-                for(const dataset of datasets) {
-                    let modules = Identifier.getModules(args,'ALLOW_NONE')
-                    if(modules.length === 0) {
-                        modules = dataset.modules().filter(x=>x.livescripts.exists())
+                for(const buildType of buildTypes) {
+                    // Build livescripts
+                    for(const dataset of datasets) {
+                        let modules = Identifier.getModules(args,'ALLOW_NONE')
                         if(modules.length === 0) {
-                            throw new Error(`Dataset ${dataset.fullName} has no modules with livescripts`)
+                            modules = dataset.modules().filter(x=>x.livescripts.exists())
+                            if(modules.length === 0) {
+                                throw new Error(`Dataset ${dataset.fullName} has no modules with livescripts`)
+                            }
+                        } else {
+                            modules = modules
+                                .filter(x=>x.livescripts.exists())
+                                .filter(
+                                    module => dataset.modules()
+                                        .find(x=>x.fullName === module.fullName)
+                                )
+                            if(modules.length === 0) {
+                                throw new Error(
+                                    `Specified modules ${args.filter(x=>Identifier.isModule(x))} `
+                                    + ` and dataset ${dataset.fullName} have no overlapping modules with livescripts`
+                                )
+                            }
                         }
-                    } else {
-                        modules = modules
-                            .filter(x=>x.livescripts.exists())
-                            .filter(
-                                module => dataset.modules()
-                                    .find(x=>x.fullName === module.fullName)
-                            )
-                        if(modules.length === 0) {
-                            throw new Error(
-                                  `Specified modules ${args.filter(x=>Identifier.isModule(x))} `
-                                + ` and dataset ${dataset.fullName} have no overlapping modules with livescripts`
-                            )
-                        }
-                    }
 
-                    for(const module of modules)
-                    {
-                        await module.livescripts.build(dataset,buildType,args);
-                    }
-                };
+                        for(const module of modules)
+                        {
+                            await module.livescripts.build(dataset,buildType,args);
+                        }
+                    };
+                }
 
                 // Reload scripts
                 if(!Args.hasFlag('transpile-only',args)) {

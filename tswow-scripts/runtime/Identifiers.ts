@@ -1,4 +1,5 @@
-import { BuildType, BUILD_TYPES } from "../util/BuildType";
+import { BuildTypeObj, parseBuildTypes } from "../util/BuildType";
+import { ipaths } from "../util/Paths";
 import { Dataset } from "./Dataset";
 import { Module, ModuleEndpoint } from "./Modules";
 import { NodeConfig } from "./NodeConfig";
@@ -47,7 +48,7 @@ export class Identifier {
     }
 
     asBuildType() {
-        return this.payload as BuildType
+        return this.payload as string
     }
 
     static assertUnused(identifier: string, name: string) {
@@ -201,26 +202,25 @@ export class Identifier {
         return valids;
     }
 
-    static getBuildType(identifiers: string[], def?: BuildType): BuildType {
-        let buildTypes = identifiers.filter(x=>BUILD_TYPES.includes(x as any))
-        if(buildTypes.length === 0) {
-            if(def === undefined) {
-                throw new Error(
-                      `No build type provided,`
-                    + ` expected at least one:: ${identifiers}`
-                )
-            } else {
-                return def;
+    static getBuildTypes(identifiers: string[], def?: string): BuildTypeObj[] {
+        const buildTypes = parseBuildTypes(ipaths.bin.build_conf)
+
+        let buildTypesFiltered = buildTypes.filter(x=>identifiers.includes(x.Name))
+        if (buildTypesFiltered.length === 0) {
+            buildTypesFiltered = buildTypes.filter(x=>x.Name === def)
+            if (buildTypes.length === undefined) {
+                throw new Error(`No build type provided, expected at least one:: ${identifiers}`)
             }
         }
 
-        if(buildTypes.length > 1) {
-            throw new Error(
-                `Multiple build types specified: ${buildTypes}`
-            )
+        return buildTypesFiltered
+    }
+    static getBuildType(identifiers: string[], def?: string): BuildTypeObj {
+        let buildTypes = this.getBuildTypes(identifiers, def)
+        if (buildTypes.length > 1) {
+            throw new Error(`Multiple build types specified: ${buildTypes.map(x=>x.Name).join(', ')}`)
         }
-
-        return buildTypes[0] as BuildType
+        return buildTypes[0]
     }
 
     static getModules(identifiers: string[], mode: CollectMode, def?: string): ModuleEndpoint[];

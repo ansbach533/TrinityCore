@@ -57,6 +57,7 @@ class TC_GAME_API TSPreparedStatement {
 protected:
     uint32 m_id;
     uint32 m_paramCount;
+    std::string m_sql;
     virtual std::shared_ptr<TSDatabaseResult> Send(TSPreparedStatementBase* stmnt) = 0;
     virtual void SendAsync(TSPreparedStatementBase* stmnt) = 0;
     TSPreparedStatement(std::string const& sql, uint32 id);

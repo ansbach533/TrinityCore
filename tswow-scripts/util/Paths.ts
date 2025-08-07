@@ -145,7 +145,13 @@ export function LivescriptsDirectory(inPath: string) {
                     livescripts: dir({}),
                     cmakelists_txt: file('CMakeLists.txt'),
                 }),
-                lib: dir({})
+                build: custom((value) => (subdir) => generateTree(mpath(value, subdir), dir({
+                }))),
+                lib: dir({
+                    build: custom((value) => (subdir) => generateTree(mpath(value, subdir), dir({
+                        built_libs: enumDir({}, (type) => {})
+                    })))
+                })
             })),
         })
     }));
@@ -285,6 +291,7 @@ export function InstallPath(pathIn: string, tdb: string) {
         startJs: file('start.js'),
 
         bin: dir({
+            build_conf: file('build.conf'),
             package: dir({
                 file: dynfile(x=>x)
             }),
@@ -588,80 +595,84 @@ export function BuildPaths(pathIn: string, tdb: string) {
         }),
 
         TrinityCore: dir({
-            sol_headers: dirn('_deps/sol2-src/include',{}),
-            lua_headers: dirn('_deps/lua-src',{}),
-            bin_linux: dirn('install/trinitycore/bin',{}),
-            etc_linux: dirn('install/trinitycore/etc',{}),
-            lib_linux: dirn('install/trinitycore/lib',{}),
-            tracy_dll: custom((k)=>(type: string)=>{
-                return new WFile(mpath(k,`_deps/tracy-build/${type}/TracyClient.dll`))
-            }),
-            tracy_source: dirn('_deps/tracy-src',{
-                tracy_header: file('Tracy.hpp'),
-                common: dir({}),
-                client: dir({})
-            }),
-            bin: custom((k)=>(name: string)=>{
-                return generateTree(mpath(k,'bin',name),dir({
-                    worldserver_exe: file('worldserver.exe'),
-                    authserver_exe: file('authserver.exe'),
-                    scripts: dir({})
+            build: custom((d) => name => {
+                return generateTree(mpath(d, name),dir({
+                    sol_headers: dirn('_deps/sol2-src/include',{}),
+                    lua_headers: dirn('_deps/lua-src',{}),
+                    bin_linux: dirn('install/trinitycore/bin',{}),
+                    etc_linux: dirn('install/trinitycore/etc',{}),
+                    lib_linux: dirn('install/trinitycore/lib',{}),
+                    tracy_dll: custom((k)=>(type: string)=>{
+                        return new WFile(mpath(k,`_deps/tracy-build/${type}/TracyClient.dll`))
+                    }),
+                    tracy_source: dirn('_deps/tracy-src',{
+                        tracy_header: file('Tracy.hpp'),
+                        common: dir({}),
+                        client: dir({})
+                    }),
+                    bin: custom((k)=>(name: string)=>{
+                        return generateTree(mpath(k,'bin',name),dir({
+                            worldserver_exe: file('worldserver.exe'),
+                            authserver_exe: file('authserver.exe'),
+                            scripts: dir({})
+                        }))
+                    }),
+        
+                    configs: custom((k)=>(name: string)=>{
+                        return generateTree(mpath(k,'bin',name),dir({}))
+                    }),
+        
+                    libraries: custom((pathIn=>(type: string)=>{
+                        return (isWindows() ?
+                        [
+                            `dep/zlib/${type}/zlib.lib`,
+                            `src/server/shared/${type}/shared.lib`,
+                            `dep/SFMT/${type}/sfmt.lib`,
+                            `dep/g3dlite/${type}/g3dlib.lib`,
+                            `dep/fmt/${type}/fmt.lib`,
+                            `dep/recastnavigation/Detour/${type}/detour.lib`,
+                            `src/server/database/${type}/database.lib`,
+                            `src/server/game/${type}/game.lib`,
+                            `src/common/${type}/common.lib`,
+                            `dep/argon2/${type}/argon2.lib`,
+                            `${type}/liblua.lib`,
+                            `${type}/liblua.pdb`,
+                            `_deps/tracy-build/${type}/TracyClient.lib`,
+                            `_deps/tracy-build/${type}/TracyClient.pdb`,
+                        ]
+                        :
+                        [
+                            `install/trinitycore/lib/libcommon.so`,
+                            `install/trinitycore/lib/libdatabase.so`,
+                            `install/trinitycore/lib/libgame.so`,
+                            `install/trinitycore/lib/libshared.so`,
+                            `install/trinitycore/lib/libTracyClient.so`,
+                        ]
+                        ).map(x=>new WFile(mpath(pathIn,x)))
+                    })),
+        
+                    libraries2: ((pathIn: string, type: string)=>(isWindows() ?
+                    [
+                        `dep/zlib/${type}/zlib.lib`,
+                        `src/server/shared/${type}/shared.lib`,
+                        `dep/SFMT/${type}/sfmt.lib`,
+                        `dep/g3dlite/${type}/g3dlib.lib`,
+                        `dep/fmt/${type}/fmt.lib`,
+                        `dep/recastnavigation/Detour/${type}/detour.lib`,
+                        `src/server/database/${type}/database.lib`,
+                        `src/server/game/${type}/game.lib`,
+                        `src/common/${type}/common.lib`,
+                        `dep/argon2/${type}/argon2.lib`
+                    ]
+                    :
+                    [
+                        `install/trinitycore/lib/libcommon.so`,
+                        `install/trinitycore/lib/libdatabase.so`,
+                        `install/trinitycore/lib/libgame.so`,
+                        `install/trinitycore/lib/libshared.so`,
+                    ]).map(x=>new WFile(pathIn).join(x)))
                 }))
-            }),
-
-            configs: custom((k)=>(name: string)=>{
-                return generateTree(mpath(k,'bin',name),dir({}))
-            }),
-
-            libraries: custom((pathIn=>(type: string)=>{
-                return (isWindows() ?
-                [
-                    `dep/zlib/${type}/zlib.lib`,
-                    `src/server/shared/${type}/shared.lib`,
-                    `dep/SFMT/${type}/sfmt.lib`,
-                    `dep/g3dlite/${type}/g3dlib.lib`,
-                    `dep/fmt/${type}/fmt.lib`,
-                    `dep/recastnavigation/Detour/${type}/detour.lib`,
-                    `src/server/database/${type}/database.lib`,
-                    `src/server/game/${type}/game.lib`,
-                    `src/common/${type}/common.lib`,
-                    `dep/argon2/${type}/argon2.lib`,
-                    `${type}/liblua.lib`,
-                    `${type}/liblua.pdb`,
-                    `_deps/tracy-build/${type}/TracyClient.lib`,
-                    `_deps/tracy-build/${type}/TracyClient.pdb`,
-                ]
-                :
-                [
-                    `install/trinitycore/lib/libcommon.so`,
-                    `install/trinitycore/lib/libdatabase.so`,
-                    `install/trinitycore/lib/libgame.so`,
-                    `install/trinitycore/lib/libshared.so`,
-                    `install/trinitycore/lib/libTracyClient.so`,
-                ]
-                ).map(x=>new WFile(mpath(pathIn,x)))
-            })),
-
-            libraries2: ((pathIn: string, type: string)=>(isWindows() ?
-            [
-                `dep/zlib/${type}/zlib.lib`,
-                `src/server/shared/${type}/shared.lib`,
-                `dep/SFMT/${type}/sfmt.lib`,
-                `dep/g3dlite/${type}/g3dlib.lib`,
-                `dep/fmt/${type}/fmt.lib`,
-                `dep/recastnavigation/Detour/${type}/detour.lib`,
-                `src/server/database/${type}/database.lib`,
-                `src/server/game/${type}/game.lib`,
-                `src/common/${type}/common.lib`,
-                `dep/argon2/${type}/argon2.lib`
-            ]
-            :
-            [
-                `install/trinitycore/lib/libcommon.so`,
-                `install/trinitycore/lib/libdatabase.so`,
-                `install/trinitycore/lib/libgame.so`,
-                `install/trinitycore/lib/libshared.so`,
-            ]).map(x=>new WFile(pathIn).join(x)))
+            })
         }),
 
         mpqbuilder: dir({
@@ -694,6 +705,8 @@ export function SourcePaths(pathIn: string) {
         node_modules: dir({
             typescript_js: file('typescript/lib/tsc'),
         }),
+        tc_cmake_params: file('tc_cmake_params.txt'),
+        tc_builds: file('tc_builds.conf'),
         misc: dir({
             mpqbuilder: dir({}),
             adtcreator: dirn('adt-creator',{}),
@@ -762,6 +775,8 @@ export function SourcePaths(pathIn: string) {
             CustomPackets: dir({}),
         }),
         build_yaml: dir({}),
+        build_conf: file('build.conf'),
+        build_default_conf: file('build.default.conf')
     }))
 }
 

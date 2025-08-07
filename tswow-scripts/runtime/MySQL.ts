@@ -221,7 +221,6 @@ export namespace mysql {
 
         const settings : DatabaseSettings[] = [
             NodeConfig.DatabaseSettings('auth'),
-            NodeConfig.DatabaseSettings('characters'),
             NodeConfig.DatabaseSettings('world'),
             NodeConfig.DatabaseSettings('world_source'),
         ].filter(x=>
@@ -365,10 +364,10 @@ export namespace mysql {
 
         await wsys.execAsync(
               `${mysqlCommand}`
-            + ` -u ${con.cfg.user}`
+            + ` -u '${con.cfg.user}'`
             + ` --default-character-set=utf8`
             + (con.cfg.password.length > 0
-                ? ` -p${con.cfg.password}`
+                ? ` -p"${con.cfg.password}"`
                 : '')
             + ` --port ${con.cfg.port}`
             + ` --host ${con.cfg.host}`

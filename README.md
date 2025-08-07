@@ -69,6 +69,14 @@ It is recommended to keep your Client alongside your source build due to a Windo
 ```
 BuildDirectory = "../build"
 InstallDirectory = "../release"
+
+Target.RelWithDebInfo.Type = "RelWithDebInfo"
+Target.RelWithDebInfo.TrinityCMakeFlags = "-DTRACY_ENABLE=ON -DTRACY_TIMER_FALLBACK=ON"
+Target.RelWithDebInfo.Scripts = "dynamic"
+
+Target.Debug.Type = "Debug"
+Target.Debug.TrinityCMakeFlags = "-DTRACY_ENABLE=ON -DTRACY_TIMER_FALLBACK=ON -DWITH_COREDEBUG=ON"
+Target.Debug.Scripts = "minimal-dynamic"
 ```
 
 - Using a terminal of your choosing such as `PowerShell` or `Git Bash` reach your `EpochSource/source` directory.
@@ -79,7 +87,7 @@ InstallDirectory = "../release"
 - When compiling it is recommended that you have closed your world and auth servers, if this is your first build this is irrelevant.
 - Using a terminal of your choosing such as `PowerShell` or `Git Bash` reach your `EpochSource/source` directory.
 - For a first setup we strongly recommend a full build which will get any further dependencies and compile every part of TS-WoW. From this point you can later more strategically compile only certain aspects.
-- Run `npm run build full`
+- Run `npm run build full RelWithDebInfo`
 - This may take a long time to complete.
 - Once this completes your `EpochSource/release` directory should now be populated.
 

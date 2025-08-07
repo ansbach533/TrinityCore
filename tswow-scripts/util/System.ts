@@ -33,16 +33,19 @@ export namespace wsys {
      * @param cb The function to execute
      */
     export async function inDirectory(dir: string, cb: () => any) {
-        term.debug('misc', `Changing working directory to ${dir}`)
         const old = process.cwd();
+        if (!wfs.exists(dir)) {
+            wfs.mkDirs(dir)
+        }
         process.chdir(dir);
         try {
-            await cb();
+            let v = await cb();
+            process.chdir(old);
+            return v
         } catch (err) {
             process.chdir(old);
             throw err;
         }
-        process.chdir(old);
     }
 
     /**

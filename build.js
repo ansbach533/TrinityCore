@@ -4,6 +4,7 @@
 const child_process = require('child_process');
 const path = require('path');
 const fs = require('fs')
+const os = require('os')
 
 if(!fs.existsSync('./build.conf')) {
     fs.copyFileSync('./build.default.conf','./build.conf');
@@ -44,13 +45,58 @@ fs.copyFileSync('package.json',path.join(buildDir,'package.json'))
 child_process.execSync('npm i', {cwd:buildDir,stdio:'inherit'});
 child_process.execSync('npm i source-map-support --no-save',{stdio:'inherit'})
 
-child_process.execSync(
-      `node -r source-map-support/register`
-    + ` ${path.join(bootstrapDir,'compile','CompileTsWow.js')}`
-    + ` ${process.argv.slice(2).join(' ')}`
-    + ` --ignore **/wotlkdata/**`
-    + ` --ipaths=${installDir}`
-    + ` --bpaths=${buildDir}`
-    + ` ${shouldDisplayNames?'--displayNames':''}`
-    + ` ${shouldDisplayTimestamps?'--displayTimestamps':''}`
-,{stdio:'inherit'});
+// todo: better fix for log file, currently doesn't work in interactive mode or on windows
+async function main() {
+    // child_process.spawn causes cmake on windows to freeze and interactive terminal to break
+    if (process.argv.includes('--interactive') || os.platform() === 'win32') {
+        child_process.execSync(
+            `node -r source-map-support/register`
+          + ` ${path.join(bootstrapDir,'compile','CompileTsWow.js')}`
+          + ` ${process.argv.slice(2).join(' ')}`
+          + ` --ignore **/wotlkdata/**`
+          + ` --ipaths=${installDir}`
+          + ` --bpaths=${buildDir}`
+          + ` ${shouldDisplayNames?'--displayNames':''}`
+          + ` ${shouldDisplayTimestamps?'--displayTimestamps':''}`
+      ,{stdio:'inherit'});
+    } else {
+        const logFile = path.join('build.log');
+        if (fs.existsSync(logFile)) {
+            fs.rmSync(logFile)
+        }
+
+        const logStream = fs.createWriteStream(logFile);
+
+        const proc = child_process.spawn(
+            'node',
+            [
+                '-r', 'source-map-support/register',
+                path.join(bootstrapDir, 'compile', 'CompileTsWow.js'),
+                ...process.argv.slice(2),
+                '--ignore', '**/wotlkdata/**',
+                `--ipaths=${installDir}`,
+                `--bpaths=${buildDir}`,
+                ...(shouldDisplayNames ? ['--displayNames'] : []),
+                ...(shouldDisplayTimestamps ? ['--displayTimestamps'] : [])
+            ],
+            { stdio: 'pipe' }
+        );
+
+        proc.stdout.pipe(process.stdout);
+        proc.stdout.pipe(logStream);
+        proc.stderr.pipe(process.stderr);
+        proc.stderr.pipe(logStream);
+
+        return new Promise((resolve, reject) => {
+            proc.on('close', (code) => {
+                logStream.end();
+                if (code === 0) {
+                    resolve();
+                } else {
+                    reject(new Error(`Process exited with code ${code}`));
+                }
+            });
+        });
+    }
+}
+main()

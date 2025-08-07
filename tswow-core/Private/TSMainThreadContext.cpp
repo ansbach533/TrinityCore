@@ -48,7 +48,7 @@ void TSMainThreadContext::SendMail(uint8 senderType, uint64 from, uint64 to, std
     MailDraft draft(subject, body);
     draft.AddMoney(money);
     draft.AddCOD(cod);
-    CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
+    CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction("TSMainThreadContext::SendMail");
 
     for (int i = 0; i < items.get_length(); ++i)
     {

@@ -1,17 +1,18 @@
-import { BuildType } from "../util/BuildType";
 import { EmulatorCore } from "../util/EmulatorCore";
 import { ipaths } from "../util/Paths";
 import { isWindows } from "../util/Platform";
 
-export function getLivescriptCMakeLists(emu: EmulatorCore, buildType: BuildType, buildModule: string) {
+export function getLivescriptCMakeLists(emu: EmulatorCore, buildType: string, buildModule: string) {
 return `cmake_minimum_required(VERSION 3.22)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_BUILD_TYPE ${buildType})
 ${!isWindows()?'set(CMAKE_SHARED_LINKER_FLAGS "-Wl,--no-undefined")':''}
 
 project(${buildModule})
 
+message(STATUS "Build type: \${CMAKE_BUILD_TYPE}")
 # Core settings
 file (GLOB libs "${
     emu === 'trinitycore'
@@ -73,7 +74,8 @@ target_include_directories(${buildModule} PUBLIC ../../../)
 
 # ts livescript headers
 target_include_directories(${buildModule} PUBLIC ./livescripts)
-target_precompile_headers(${buildModule} PUBLIC \${headers})
+file (GLOB module_headers "livescripts/*.h")
+target_precompile_headers(${buildModule} PUBLIC \${headers} \${module_headers})
 
 # defines
 ${(()=>{
@@ -101,5 +103,72 @@ if(TRACY_ENABLE)
     target_compile_definitions(${buildModule} PUBLIC TRACY_ENABLE=1)
 endif()
 
-include({CMAKE_CURRENT_SOURCE_DIR}/../../../../CMakeLists.txt OPTIONAL)`
+include({CMAKE_CURRENT_SOURCE_DIR}/../../../../CMakeLists.txt OPTIONAL)
+
+if(ASAN)
+target_compile_options(${buildModule}
+  PUBLIC
+    -fno-omit-frame-pointer
+    -fsanitize=address
+    -fsanitize-recover=address
+    -fsanitize-address-use-after-scope)
+
+target_link_options(${buildModule}
+  PUBLIC
+    -fno-omit-frame-pointer
+    -fsanitize=address
+    -fsanitize-recover=address
+    -fsanitize-address-use-after-scope)
+
+message(STATUS "Clang: Enabled Address Sanitizer ASan")
+endif()
+
+if(MSAN)
+target_compile_options(${buildModule}
+  PUBLIC
+    -fno-omit-frame-pointer
+    -fsanitize=memory
+    -fsanitize-memory-track-origins
+    -mllvm
+    -msan-keep-going=1)
+
+target_link_options(${buildModule}
+  PUBLIC
+    -fno-omit-frame-pointer
+    -fsanitize=memory
+    -fsanitize-memory-track-origins)
+
+message(STATUS "Clang: Enabled Memory Sanitizer MSan")
+endif()
+
+if(UBSAN)
+target_compile_options(${buildModule}
+  PUBLIC
+    -fno-omit-frame-pointer
+    -fsanitize=undefined)
+
+target_link_options(${buildModule}
+  PUBLIC
+    -fno-omit-frame-pointer
+    -fsanitize=undefined)
+
+message(STATUS "Clang: Enabled Undefined Behavior Sanitizer UBSan")
+endif()
+
+if(TSAN)
+target_compile_options(${buildModule}
+  PUBLIC
+    -fno-omit-frame-pointer
+    -fsanitize=thread)
+
+target_link_options(${buildModule}
+  PUBLIC
+    -fno-omit-frame-pointer
+    -fsanitize=thread)
+
+message(STATUS "Clang: Enabled Thread Sanitizer TSan")
+endif()
+
+
+`
 }

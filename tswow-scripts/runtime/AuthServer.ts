@@ -1,4 +1,3 @@
-import { BuildType, findBuildType } from "../util/BuildType";
 import { commands } from "../util/Commands";
 import { patchTCConfig } from "../util/ConfigFile";
 import { wfs } from "../util/FileSystem";
@@ -7,6 +6,7 @@ import { Process } from "../util/Process";
 import { term } from "../util/Terminal";
 import { StartCommand, StopCommand } from "./CommandActions";
 import { Dataset } from "./Dataset";
+import { Identifier } from "./Identifiers";
 import { Connection, mysql } from "./MySQL";
 import { NodeConfig } from "./NodeConfig";
 import { Realm } from "./Realm";
@@ -32,7 +32,7 @@ export namespace AuthServer {
         return authserver.stop();
     }
 
-    export async function start(type: BuildType = NodeConfig.DefaultBuildType) {
+    export async function start(type: string = NodeConfig.DefaultBuildType) {
         term.log('authserver', `Starting ${type} authserver`)
         authserver.setAutoRestart(NodeConfig.AutoRestartAuthServer)
 
@@ -99,7 +99,7 @@ export namespace AuthServer {
             ,'debug|release?'
             ,'Starts the local authserver'
             , (args)=>{
-            return start(findBuildType(args));
+            return start(Identifier.getBuildType(args).Name);
         }).addAlias('auth');
     }
 }

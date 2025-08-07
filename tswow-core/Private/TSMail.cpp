@@ -262,7 +262,7 @@ void TSMailDraft::SetBody(std::string const& body)
 void TSMailDraft::AddItem(uint32 entry, uint8 count, TSPlayer player)
 {
     auto item = Item::CreateItem(entry,count,player->player);
-    CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
+    CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction("TSMailDraft::AddItem");
     item->SaveToDB(trans);
     CharacterDatabase.CommitTransaction(trans);
     draft->AddItem(item);

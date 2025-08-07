@@ -1,5 +1,5 @@
-import { BuildType } from "../util/BuildType";
 import { ConfigFile, Property, Section } from "../util/ConfigFile";
+import { isWindows } from "./Platform";
 
 export interface DatabaseSettings {
     host: string;
@@ -22,7 +22,7 @@ export class NodeConfigClass extends ConfigFile {
         name: 'Default.Client'
       , description: 'The client that is automatically selected if none is specified in the current dataset'
       , important: 'No spaces allowed!'
-      , examples: [['C:\\wowdev\\client','']]
+      , examples: [[ isWindows() ? 'C:\\wowdev\\client' : '~/3.3.5','']]
     })
     DefaultClient!: string
 
@@ -49,7 +49,7 @@ export class NodeConfigClass extends ConfigFile {
           , ['Debug','All debugging symbols, but (very) slow. Only recommended when debugging a specific problem']
     ]
     })
-    DefaultBuildType!: BuildType
+    DefaultBuildType!: string
 
     @Section('AutoStart')
 
@@ -257,4 +257,39 @@ export class NodeConfigClass extends ConfigFile {
         , examples: [[true,'']]
     })
     WritePosToClipboard!: boolean
+
+    @Property({
+        name: 'Misc.CoreDumpSize'
+      , description: 'How large core dumps should be (linux only)'
+      , examples: [[30000,'30mb']]
+    })
+    CoreDumpSize!: number
+
+    @Property({
+        name: 'Misc.AsanOptions'
+      , description: 'Command-line options to pass to ASAN before starting worldserver'
+      , examples: [['abort_on_error=0:disable_coredump=0','']]
+    })
+    AsanOptions!: string
+
+    @Property({
+      name: 'Misc.CoresKept'
+    , description: 'How many core dumps to keep'
+    , examples: [[5,'']]
+    })
+    CoresKept!: number
+
+    @Property({
+      name: 'Misc.LogsKept'
+    , description: 'How many server logs to keep'
+    , examples: [[5,'']]
+    })
+    LogsKept!: number
+
+    @Property({
+      name: 'Misc.StackTracesKept'
+    , description: 'How many stack traces to keep'
+    , examples: [[5,'']]
+    })
+    StackTracesKept!: number
 }

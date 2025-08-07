@@ -16,6 +16,7 @@
  */
 import { Args } from '../util/Args';
 import { commands } from '../util/Commands';
+import { parseConf } from '../util/ConfigFile';
 import { ipaths } from '../util/Paths';
 import { isWindows } from '../util/Platform';
 import { term } from '../util/Terminal';
@@ -40,11 +41,10 @@ setContext('build');
 
 let buildingScripts = false;
 
-async function compile(type: string, compileArgs: string[]) {
+async function compile(compileArgs: string[]) {
     // Load necessary libraries
-    const types = type.split(' ');
     function isType(check: string) {
-        return types.includes('full') || types.includes('release') || types.includes(check);
+        return compileArgs.includes('full') || compileArgs.includes('release') || compileArgs.includes(check) || compileArgs.includes(`${check}-release`) || compileArgs.includes(`${check}-relwithdebinfo`) || compileArgs.includes(`${check}-debug`);
     }
 
     const cmake = isWindows() ? (await CMake.find()).get() : 'cmake';
@@ -58,12 +58,8 @@ async function compile(type: string, compileArgs: string[]) {
     if (isWindows()) { await SevenZipInstall.install(); }
     if (isWindows()) { await IMInstall.install() }
 
-    if (types.includes('full') || types.includes('release')) {
-        await TrinityCore.install(cmake, openssl, mysql, 'RelWithDebInfo', compileArgs.concat(['dynamic']));
-    } else {
-        if (type == 'trinitycore-release') { await TrinityCore.install(cmake, openssl, mysql, 'Release', compileArgs); }
-        if (isType('trinitycore') || isType('trinitycore-relwithdebinfo')) { await TrinityCore.install(cmake, openssl, mysql, 'RelWithDebInfo', compileArgs); }
-        if (type == 'trinitycore-debug') { await TrinityCore.install(cmake, openssl, mysql, 'Debug', compileArgs); }
+    if (isType('trinitycore')) {
+        await TrinityCore.install(cmake, openssl, mysql, compileArgs);
     }
 
     if (isType('mpqbuilder')) { await MPQBuilder.create(cmake); }
@@ -80,7 +76,7 @@ async function compile(type: string, compileArgs: string[]) {
         await Config.create();
     }
 
-    if (types.includes('release')) {
+    if (process.argv.includes('tswow-release')) {
         term.log('build',`Creating ${bpaths.release_7z.get()}`);
         SevenZipInstall.makeArchive(bpaths.release_7z.abs().get(), ipaths.abs().get());
     }
@@ -96,7 +92,7 @@ async function main() {
         , process.argv.includes('--displayNames')
         );
     const build = commands.addCommand('build');
-    await compile('scripts', []);
+    await compile(['scripts']);
 
     const installedPrograms =
         [
@@ -118,10 +114,10 @@ async function main() {
         ];
 
     for (const val of installedPrograms) {
-        build.addCommand(val, '', `Builds ${val}`, async(args) => await compile(val, args));
+        build.addCommand(val, '', `Builds ${val}`, async(args) => await compile([val, ...args]));
     }
 
-    build.addCommand('base', '', 'Builds only base dependencies', async(args) => await compile('', args));
+    // build.addCommand('base', '', 'Builds only base dependencies', async(args) => await compile('', args));
 
     commands.addCommand('headers','','',async(args)=>{
         TrinityCore.headers(Args.hasFlag('global-only',args));
@@ -132,6 +128,21 @@ async function main() {
 
 
 (async function(){
+    /*
+    if (spaths.tc_builds.exists()) {
+        const conf = parseConf(spaths.tc_builds.readString())
+        console.log(conf)
+    } else {
+
+    }
+    return;
+    */
+    if (!spaths.tc_cmake_params.exists()) {
+        spaths.tc_cmake_params.write(
+            '-DTRACY_ENABLE=ON\n' +
+            '-DTRACY_TIMER_FALLBACK=ON\n'
+        )
+    }
     if(!spaths.tswow_scripts.wotlk.global_d_ts.exists()) {
         TrinityCore.headers(true);
     }
@@ -144,7 +155,7 @@ async function main() {
     if(isInteractive) {
         main();
     } else {
-        await compile(process.argv.includes('--release') ? 'release':'full',[]);
+        await compile(process.argv);
         process.exit(0);
     }
 }())

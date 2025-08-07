@@ -17,6 +17,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { FilePath, resfp, WDirectory } from './FileTree';
+import { term } from './Terminal';
 
 /**
  * Async file system access using promises
@@ -558,6 +559,7 @@ export namespace wfs {
             throw new Error(`Attempted to copy from non-existent source:'${source}'`);
         }
         if (flushFolders) {
+            term.debug('misc', `Flushing folders: ${source}`)
             remove(target);
         }
 
@@ -579,6 +581,9 @@ export namespace wfs {
                 if (ignored.includes(ipath)) { continue; }
 
                 if (isFile(ipath)) {
+                    if (wfs.exists(tpath)) {
+                        wfs.remove(tpath)
+                    }
                     fs.copyFileSync(ipath, tpath);
                 } else {
                     copyFolder(ipath, tpath);

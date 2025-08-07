@@ -52,6 +52,7 @@ export class Process {
     private _waiters: {[key: string]: (message: string) => void} = {};
     private _bufferSize = 2048;
     private _listeners: ((message: string) => void)[] = [];
+    private _onExit: (() => void)[] = [];
     private _onFail: ((err: Error)=>void)|undefined = undefined;
     private _isStopping: boolean = false;
     private _autoRestart: boolean = false;
@@ -104,6 +105,11 @@ export class Process {
 
     onMessage(listener: (message: string) => void ) {
         this._listeners.push(listener);
+        return this;
+    }
+
+    onExit(listener: () => void) {
+        this._onExit.push(listener);
         return this;
     }
 
@@ -222,7 +228,10 @@ export class Process {
 
         return this._stopPromise = new Promise<void>((res) => {
             let killed = false;
-            const onDestroyed = () => {
+            const onDestroyed = async () => {
+                for (const listener of this._onExit) {
+                    await listener()
+                }
                 if(!killed) {
                     killed = true;
                     if(this._process!==undefined

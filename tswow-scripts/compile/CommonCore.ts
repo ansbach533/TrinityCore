@@ -16,9 +16,11 @@
  */
 import { ipaths } from "../util/Paths"
 import { isWindows } from "../util/Platform"
+import { term } from "../util/Terminal"
 import { bpaths } from "./CompilePaths"
 
 export function copyExtLibs(core: 'trinitycore', type: string) {
+    term.debug('build', `Copying ext libs for ${core} ${type}`)
     if (isWindows()) {
         [
             bpaths.mysql.find_subdir().lib.libmysql_dll,

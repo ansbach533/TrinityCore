@@ -36,7 +36,7 @@ static std::map<fs::path, TSLibrary> libraries;
 void TSLivescripts::Load()
 {
 #if TRINITY
-    fs::path libPath = fs::path(sConfigMgr->GetStringDefault("DataDir", "./")) / "lib" / LIVESCRIPT_BUILD_TYPE;
+    fs::path libPath = fs::path(sConfigMgr->GetStringDefault("DataDir", "./")) / "lib" / TRINITY_BUILD_NAME;
 #endif
     // Unload libraries
     for(auto & [path,lib] : libraries)
@@ -61,7 +61,7 @@ void TSLivescripts::Load()
         std::string modName = file.filename().string();
         modName = modName.substr(0, modName.find_last_of("."));
 
-        fs::path realmLibDir = fs::current_path() / "lib" / LIVESCRIPT_BUILD_TYPE;
+        fs::path realmLibDir = fs::current_path() / "lib" / TRINITY_BUILD_NAME;
         fs::path pdbPathIn = file.parent_path() / (modName + ".pdb");
         fs::path libPathOut = realmLibDir / (modName + DL_EXT);
         fs::path pdbPathOut = realmLibDir / (modName + ".pdb");

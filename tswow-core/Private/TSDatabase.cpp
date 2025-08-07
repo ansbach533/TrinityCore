@@ -340,7 +340,7 @@ TSPreparedStatementBase* TSPreparedStatementBase::SetBinary(const uint8 index, T
 
 TSPreparedStatementBase TSPreparedStatement::Create()
 {
-    return TSPreparedStatementBase(new PreparedStatementBase(0,m_paramCount), this);
+    return TSPreparedStatementBase(new PreparedStatementBase(0,m_paramCount, m_sql), this);
 }
 
 std::shared_ptr<TSDatabaseResult> TSPreparedStatementWorld::Send(TSPreparedStatementBase* stmnt)
@@ -387,7 +387,7 @@ void TSPreparedStatementAuth::SendAsync(TSPreparedStatementBase* stmnt)
 
 TSPreparedStatement::TSPreparedStatement(std::string const& sql, uint32 id)
     : m_id(id)
-    , m_paramCount(std::count(sql.begin(),sql.end(),'?'))
+    , m_paramCount(std::count(sql.begin(),sql.end(),'?')), m_sql(sql)
 {
 
 }

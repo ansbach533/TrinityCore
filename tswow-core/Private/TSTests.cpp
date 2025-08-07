@@ -272,7 +272,7 @@ static void reportFail(
         + stepName
         + " (reason = " + reason + ")"
     );
-    PreparedStatementBase params(0,6);
+    PreparedStatementBase params(0,6, "");
     params.setString(0, sessionName);
     params.setString(1, errorType);
     params.setString(2, modName);
@@ -379,7 +379,7 @@ TSManualTestBuilder* TSManualTestBuilder::step(std::string const& name, TSStepBu
 
 void ClearTest(std::string name)
 {
-    PreparedStatementBase params(0, 1);
+    PreparedStatementBase params(0, 1, "");
     params.setString(0, name);
     CharacterDatabase.QueryCustomStatement(stmnt_deleteErrors, &params);
     CharacterDatabase.QueryCustomStatement(stmnt_deleteSession, &params);
@@ -467,7 +467,7 @@ void TC_GAME_API StartTestSession(Player * player, std::string const& sessionNam
         }
         step.start(player);
 
-        PreparedStatementBase params(0, 8);
+        PreparedStatementBase params(0, 8, "");
         params.setString(0, sessionName);
         params.setString(1, step.m_modName);
         params.setString(2, step.m_testName);
@@ -486,7 +486,7 @@ void TC_GAME_API StartTestSession(Player * player, std::string const& sessionNam
     }
     else
     {
-        PreparedStatementBase params(0, 8);
+        PreparedStatementBase params(0, 8, "");
         params.setString(0, sessionName);
         params.setString(1, "");
         params.setString(2, "");
@@ -503,7 +503,7 @@ void TC_GAME_API StartTestSession(Player * player, std::string const& sessionNam
 
 static void endSession(Player* player, std::string const& sessionName, uint32_t errorCount, uint32_t totalCount)
 {
-    PreparedStatementBase updateParams(0, 7);
+    PreparedStatementBase updateParams(0, 7, "");
     updateParams.setString(0, "");
     updateParams.setString(1, "");
     updateParams.setString(2, "");
@@ -517,7 +517,7 @@ static void endSession(Player* player, std::string const& sessionName, uint32_t 
 
 void TC_GAME_API NextTestStep(Player * player, std::string const& sessionName, bool isFail, std::string const& failMessage)
 {
-    PreparedStatementBase params(0, 1);
+    PreparedStatementBase params(0, 1, "");
     params.setString(0, sessionName);
     auto res = CharacterDatabase.QueryCustomStatement(stmnt_getSession, &params);
 
@@ -630,7 +630,7 @@ void TC_GAME_API NextTestStep(Player * player, std::string const& sessionName, b
     }
 
     itr->start(player);
-    PreparedStatementBase updateParams(0, 7);
+    PreparedStatementBase updateParams(0, 7, "");
     updateParams.setString(0, itr->m_modName);
     updateParams.setString(1, itr->m_testName);
     updateParams.setString(2, itr->m_stepName);
@@ -644,7 +644,7 @@ void TC_GAME_API NextTestStep(Player * player, std::string const& sessionName, b
 void PrintSessionStatus(Player* player, std::string const& sessionName)
 {
     createTestDir();
-    PreparedStatementBase params(0, 1);
+    PreparedStatementBase params(0, 1, "");
     params.setString(0, sessionName);
     auto sessionRes = CharacterDatabase.QueryCustomStatement(stmnt_getSession, &params);
     auto errorsRes = CharacterDatabase.QueryCustomStatement(stmnt_getErrors, &params);

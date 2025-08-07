@@ -529,7 +529,7 @@ ItemTemplate* TSItemTemplate::_GetInfo()
 void TSItemTemplate::Save()
 {
 #if TRINITY
-    CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
+    CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction("TSItemTemplate::Save");
 
     CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_CUSTOM_ITEM);
     stmt->setUInt32(0, info->ItemId);

@@ -14,9 +14,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-import { BuildType } from '../util/BuildType';
-import { mpath, wfs } from '../util/FileSystem';
-import { WNode } from '../util/FileTree';
 import { ipaths } from '../util/Paths';
 import { wsys } from '../util/System';
 import { term } from '../util/Terminal';
@@ -34,7 +31,7 @@ import { NodeConfig } from './NodeConfig';
 export namespace MapData {
     export function dbc (
         dataset: Dataset
-      , type: BuildType = NodeConfig.DefaultBuildType
+      , type: string = NodeConfig.DefaultBuildType
     ) {
       term.debug('misc', `Extracting dbc from ${dataset.client.path.abs()}`)
       dataset.path.dbc_temp.mkdir();
@@ -53,7 +50,7 @@ export namespace MapData {
 
     export function map (
           dataset: Dataset
-        , type: BuildType = NodeConfig.DefaultBuildType
+        , type: string = NodeConfig.DefaultBuildType
         , maps: number[] = []
         , tiles: number[] = []
     ) {
@@ -71,7 +68,7 @@ export namespace MapData {
 
     export function vmap_extract(
         dataset: Dataset
-      , type: BuildType = NodeConfig.DefaultBuildType
+      , type: string = NodeConfig.DefaultBuildType
       //, models: string[] = []
       //, maps: number[] = []
       //, tiles: number[] = []
@@ -89,7 +86,7 @@ export namespace MapData {
 
     export function vmap_assemble(
         dataset: Dataset
-      , type: BuildType = NodeConfig.DefaultBuildType
+      , type: string = NodeConfig.DefaultBuildType
     ) {
       switch(dataset.config.EmulatorCore) {
         case 'trinitycore':
@@ -103,7 +100,7 @@ export namespace MapData {
 
     export function mmaps(
         dataset: Dataset
-      , type: BuildType = NodeConfig.DefaultBuildType
+      , type: string = NodeConfig.DefaultBuildType
       , maps: number[] = []
       , tiles: number[] = []
       , threadCount?: number
@@ -151,7 +148,7 @@ export namespace MapData {
                     .forEach(x=>
                         map(
                             x
-                            , Identifier.getBuildType(args,NodeConfig.DefaultBuildType)
+                            , Identifier.getBuildType(args,NodeConfig.DefaultBuildType).Name
                             , maps
                             , tiles
                         ))
@@ -163,10 +160,10 @@ export namespace MapData {
             Identifier.getDatasets(args,'MATCH_ANY',NodeConfig.DefaultDataset)
                 .forEach(x=>{
                     if(!args.includes('--assemble-only'))
-                        vmap_extract(x, bt)
+                        vmap_extract(x, bt.Name)
 
                     if(!args.includes('--extract-only'))
-                        vmap_assemble(x, bt)
+                        vmap_assemble(x, bt.Name)
                 });
             }
         )
@@ -188,7 +185,7 @@ export namespace MapData {
                 ).forEach(x=>{
                     mmaps(
                           x
-                        , bt
+                        , bt.Name
                         , maps
                         , tiles
                         , threadCount

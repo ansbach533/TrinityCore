@@ -1,9 +1,9 @@
-import { BuildType } from "../util/BuildType";
 import { commands } from "../util/Commands";
 import { ConfigFile, patchTCConfig, Property, Section } from "../util/ConfigFile";
 import { EmulatorCore } from "../util/EmulatorCore";
 import { wfs } from "../util/FileSystem";
 import { ipaths } from "../util/Paths";
+import { isWindows } from "../util/Platform";
 import { Process } from "../util/Process";
 import { wsys } from "../util/System";
 import { term } from "../util/Terminal";
@@ -62,6 +62,15 @@ export class RealmConfig extends ConfigFile {
       , important: 'This is **not** a hostname/DNS'
     })
     PublicAddress: string = this.undefined();
+
+    @Property({
+        name: 'Realm.CharactersDB'
+      , description: 'The characters db connection string for this realm'
+      , examples: [
+            ['localhost;3306;root;root', '']
+      ]
+    })
+    CharactersDB: string = this.undefined();
 
     @Property({
           name: 'Realm.LocalAddress'
@@ -157,9 +166,24 @@ export class RealmConfig extends ConfigFile {
 class RealmManager {
     characters: Connection;
     worldserver: Process;
-    constructor(name: string) {
+    constructor(name: string, chars_db: string) {
+        const makeSettings = (str: string, suffix?: string)=>{
+            const [host,port,user,password] = str.split(';')
+
+            name = name
+                ? `${name.replace('.', '_')}_`
+                : ''
+            return {
+                  host
+                , port : parseInt(port)
+                , user
+                , password
+                , database:`${name}${suffix}`,
+            }
+        }
+
         this.characters = new Connection(
-              NodeConfig.DatabaseSettings('characters',name)
+              makeSettings(chars_db, 'characters')
             , 'characters'
         )
         this.worldserver = new Process(`realm/${name}`)
@@ -175,12 +199,68 @@ export class Realm {
 
     readonly mod: ModuleEndpoint
     readonly name: string
-    lastBuildType: BuildType = NodeConfig.DefaultBuildType
+    lastBuildType: string = NodeConfig.DefaultBuildType
     readonly config: RealmConfig
+    private curBuildType?: string
 
     private manager() {
-        return Realm.managers[this.fullName]
-           || (Realm.managers[this.fullName] = new RealmManager(this.fullName))
+        let realm = Realm.managers[this.fullName]
+        if (realm) {
+            return realm;
+        }
+        realm = Realm.managers[this.fullName] = new RealmManager(this.fullName, this.config.CharactersDB)
+        realm.worldserver.onExit(async () => {
+            const dateObj = new Date()
+            const dateStr = `${dateObj.getFullYear()}-${dateObj.getMonth()+1}-${dateObj.getDate()}.`
+                + `${dateObj.getHours()}-${dateObj.getMinutes()}-${dateObj.getSeconds()}`
+
+            term.log(this.logName(), `Worldserver exited`)
+            if (!isWindows()) {
+                const corePath = this.path.join('core').abs()
+                if (corePath.exists()) {
+                    const tcDir = ipaths.bin.core.pick(`TrinityCore`).build.pick(this.curBuildType)
+                    const livescriptLibDir = this.config.Dataset.path.join('lib').join(this.curBuildType)
+                    const stackTracePath = this.path.join(`stacktrace-${dateStr}.txt`).abs()
+                    term.log(this.logName(), `Found core, generating stacktrace ${stackTracePath.basename().get()}`)
+                    await wsys.execAsync(`gdb -batch -ex "set solib-search-path ${tcDir.abs().get()}:${livescriptLibDir.abs().get()}" -ex bt -ex quit ${tcDir.worldserver.abs().get()} ${corePath.abs().get()} > ${stackTracePath.get()}`)
+                    const coreCopyPath = corePath.dirname().join(`core-${dateStr}`)
+                    term.log(this.logName(), `Wrote core to ${coreCopyPath.get()}`)
+                    corePath.copy(coreCopyPath)
+
+                    // removed so that next crash doesn't accidentally use the last core dump
+                    corePath.remove()
+
+                    this.path.readDir().filter(x => x.startsWith(`core-`)).sort().slice(NodeConfig.CoresKept)
+                        .forEach(x => x.remove())
+
+                    this.path.readDir().filter(x => x.startsWith(`stacktrace-`)).sort().slice(NodeConfig.StackTracesKept)
+                } else {
+                    term.log(this.logName(), `No core was found`)
+                }
+            }
+
+            const logPath = this.path.join(`Server.log`)
+            const gmLogPath = this.path.join(`GM.log`)
+            const dbErrorsPath = this.path.join(`DBErrors.log`)
+
+            ;[logPath, gmLogPath, dbErrorsPath].forEach(x => {
+                if (!x.exists()) {
+                    return;
+                }
+
+                const filename = x.basename().get().replace('.log', '')
+                const copyPath = this.path.join(`${filename}-${dateStr}.log`)
+                x.copy(copyPath)
+            })
+            this.path.readDir().filter(x => x.startsWith(`Server-`) && x.endsWith(`.log`)).sort().slice(NodeConfig.LogsKept)
+                .forEach(x => x.remove())
+            this.path.readDir().filter(x => x.startsWith(`GM-`) && x.endsWith(`.log`)).sort().slice(NodeConfig.LogsKept)
+                .forEach(x => x.remove())
+            this.path.readDir().filter(x => x.startsWith(`DBErrors-`) && x.endsWith(`.log`)).sort().slice(NodeConfig.LogsKept)
+                .forEach(x => x.remove())
+        })
+
+        return realm
     }
 
     get characters() {
@@ -272,7 +352,8 @@ export class Realm {
 
     get core(): EmulatorCore {  return this.config.Dataset.config.EmulatorCore }
 
-    async start(type: BuildType) {
+    async start(type: string) {
+        this.curBuildType = type;
         term.log(this.logName(),`Starting worlserver for ${this.config.RealmName}...`)
         this.lastBuildType = type;
         await this.connect();
@@ -298,10 +379,27 @@ export class Realm {
             , NodeConfig.DatabaseString('auth')
         )
 
+        const makeSettings = (str: string, suffix?: string)=>{
+            const [host,port,user,password] = str.split(';')
+
+            return {
+                  host
+                , port : parseInt(port)
+                , user
+                , password
+                , database: this.characters.cfg.database,
+            }
+        }
+
         patchTCConfig(
             this.path.worldserver_conf.get()
           , 'CharacterDatabaseInfo'
-          , NodeConfig.DatabaseString('characters',this.fullName)
+          , (
+            () => {
+                let settings = makeSettings(this.config.CharactersDB, 'characters');
+                return `${settings.host};${settings.port};${settings.user};${settings.password};${settings.database}`;
+                }
+            )()
         )
 
         patchTCConfig(
@@ -334,6 +432,11 @@ export class Realm {
         patchTCConfig(this.path.worldserver_conf.get(), 'DataDir',this.config.Dataset.path.abs().get())
 
         this.worldserver.setAutoRestart(this.config.AutoRestart);
+
+        if (!isWindows()) {
+            wsys.exec(`ulimit -c ${NodeConfig.CoreDumpSize}`)
+            wsys.exec(`export ASAN_OPTIONS=${NodeConfig.AsanOptions}`)
+        }
 
         switch(this.core) {
             case 'trinitycore':
@@ -462,7 +565,7 @@ export class Realm {
                             x.worldserver.setAutoRestart(true);
                         }
                         
-                        return x.start(Identifier.getBuildType(args,NodeConfig.DefaultBuildType))
+                        return x.start(Identifier.getBuildType(args,NodeConfig.DefaultBuildType).Name)
                     }))
             }
         ).addAlias('realms')
