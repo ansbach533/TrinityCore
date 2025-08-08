@@ -67,6 +67,7 @@
 #include <boost/program_options.hpp>
 #include <csignal>
 #include <iostream>
+#include <exception>
 
 using namespace boost::program_options;
 namespace fs = boost::filesystem;
@@ -295,7 +296,7 @@ extern int main(int argc, char** argv)
     if (!StartDB())
         return 1;
 
-    std::shared_ptr<void> dbHandle(nullptr, [](void*) { StopDB(); });
+    //std::shared_ptr<void> dbHandle(nullptr, [](void*) { StopDB(); });
 
     if (vm.count("update-databases-only"))
         return 0;
@@ -446,9 +447,7 @@ extern int main(int argc, char** argv)
     // 2 - restart command used, this code can be used by restarter for restart Trinityd
 
     // tracy hackfix
-    WorldDatabase.~DatabaseWorkerPool();
-    CharacterDatabase.~DatabaseWorkerPool();
-    LoginDatabase.~DatabaseWorkerPool();
+    StopDB();
     std::exit(World::GetExitCode());
 
     return World::GetExitCode();
