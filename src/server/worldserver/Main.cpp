@@ -564,7 +564,7 @@ void WorldUpdateLoop()
     WorldDatabase.WarnAboutSyncQueries(false);
 }
 
-void SignalHandler(boost::system::error_code const& error, int /*signalNumber*/)
+void SignalHandler(boost::system::error_code const& error, int signalNumber)
 {
     if (error.failed())
     {
