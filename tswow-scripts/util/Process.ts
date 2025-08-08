@@ -23,6 +23,7 @@ import { termCustom } from "./TerminalCategories";
 
 const processes : {[key: number]: ChildProcessWithoutNullStreams} = {};
 function cleanup() {
+    term.log('process', 'cleanup')
     for(const proc of Object.values(processes)) {
         proc.kill('SIGTERM');
     }
@@ -31,12 +32,31 @@ function cleanup() {
 // causes major terminal glitching
 if(!isWindows())
 {
-    process.on('exit', cleanup);
-    process.on('SIGINT', cleanup);
-    process.on('SIGUSR1', cleanup);
-    process.on('SIGUSR2', cleanup);
-    process.on('uncaughtException', cleanup);
-    process.on('SIGINT', cleanup)
+    process.on('exit', () => {
+        term.log('process', 'exit')
+        cleanup()
+    });
+    process.on('SIGINT', () => {
+        term.log('process', 'SIGINT')
+        cleanup()
+    });
+    process.on('SIGUSR1', () => {
+        term.log('process', 'SIGUSR1')
+        cleanup()
+    });
+    process.on('SIGUSR2', () => {
+        term.log('process', 'SIGUSR2')
+        cleanup()
+    });
+    process.on('uncaughtException', (a) => {
+        term.error('process', `${a}`)
+        cleanup()
+        process.exit(1)
+    });
+    process.on('SIGINT', () => {
+        term.log('process', 'SIGINT')
+        cleanup()
+    })
 }
 
 /**
@@ -57,6 +77,7 @@ export class Process {
     private _isStopping: boolean = false;
     private _autoRestart: boolean = false;
     private _lastStart?: {directory : FilePath, program: string, args: string[]} = undefined
+    private _lastPID?: number
 
     private _lineBuffers = {
         stderr: {value: '', idx: 0},
@@ -88,6 +109,10 @@ export class Process {
     setAutoRestart(autoRestart: boolean) {
         this._autoRestart = autoRestart;
         return this;
+    }
+
+    get lastPID() {
+        return this._lastPID
     }
 
     isRunning() {
@@ -183,14 +208,15 @@ export class Process {
      * Attempts to stop this process if it's running.
      * Does nothing if the process is not started.
      */
-    async stop() {
+    async stop(signal?: number) {
+        term.log('process', `stopping ${this._name}`)
         this._curString = '';
 
         if (this._process === undefined) {
             return;
         }
 
-        this._process.kill();
+        this._process.kill(signal);
         this._isStopping = true;
         return this._stopPromise;
     }
@@ -206,7 +232,9 @@ export class Process {
         , program: string
         , args: string[] = []
     ) {
+        term.debug('process', `stopping`)
         await this.stop();
+        term.debug('process', `stopped`)
         this._lastStart = {directory,program,args};
         this._isStopping = false;
         const proc = child_process.spawn(
@@ -214,6 +242,7 @@ export class Process {
             , args
             , {stdio:'pipe',cwd:resfp(directory)}
         )
+        this._lastPID = proc.pid
         this._process = processes[proc.pid] = proc;
         this._process.stdout.on('data', (data) => {
             this.handleOutput(data, false);
@@ -229,6 +258,7 @@ export class Process {
         return this._stopPromise = new Promise<void>((res) => {
             let killed = false;
             const onDestroyed = async () => {
+                term.log('process', `onDestroyed for ${this._name}`)
                 for (const listener of this._onExit) {
                     await listener()
                 }
