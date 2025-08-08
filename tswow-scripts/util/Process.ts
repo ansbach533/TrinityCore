@@ -231,9 +231,18 @@ export class Process {
           directory: FilePath
         , program: string
         , args: string[] = []
+        , force: boolean = false
     ) {
         term.debug('process', `stopping`)
-        await this.stop();
+        // todo: don't always force
+        if (force || true) {
+            try {
+                this._process.kill(9);
+                await new Promise(res=>setTimeout(res,1000));
+            } catch(a) {}
+        } else {
+            await this.stop();
+        }
         term.debug('process', `stopped`)
         this._lastStart = {directory,program,args};
         this._isStopping = false;

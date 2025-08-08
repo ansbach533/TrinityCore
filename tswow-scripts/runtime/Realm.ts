@@ -359,7 +359,7 @@ export class Realm {
 
     get core(): EmulatorCore {  return this.config.Dataset.config.EmulatorCore }
 
-    async start(type: string) {
+    async start(type: string, force: boolean = false) {
         this.curBuildType = type;
         term.log(this.logName(),`Starting worlserver for ${this.config.RealmName}...`)
         this.lastBuildType = type;
@@ -449,7 +449,7 @@ export class Realm {
             case 'trinitycore':
                 this.worldserver.startIn(this.path.get(),
                     wfs.absPath(ipaths.bin.core.pick(this.config.Dataset.config.EmulatorCore).build.pick(type).worldserver.get()),
-                        [`-c${wfs.absPath(this.path.worldserver_conf.get())}`]);
+                        [`-c${wfs.absPath(this.path.worldserver_conf.get())}`], force);
                 break;
         }
     }
@@ -567,12 +567,11 @@ export class Realm {
                     .map(x=>{
                         if(args.includes('--disable-auto-restart')) {
                             x.worldserver.setAutoRestart(false);
-                        }else if(args.includes('--enable-auto-restart'))
-                        {
+                        } else if(args.includes('--enable-auto-restart')) {
                             x.worldserver.setAutoRestart(true);
                         }
-                        
-                        return x.start(Identifier.getBuildType(args,NodeConfig.DefaultBuildType).Name)
+
+                        return x.start(Identifier.getBuildType(args,NodeConfig.DefaultBuildType).Name, args.includes('force'))
                     }))
             }
         ).addAlias('realms')
