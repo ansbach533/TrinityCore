@@ -23,9 +23,10 @@ import { termCustom } from "./TerminalCategories";
 
 const processes : {[key: number]: ChildProcessWithoutNullStreams} = {};
 function cleanup() {
-    term.log('process', 'cleanup')
+    term.log('process', 'Cleaning up processes')
     for(const proc of Object.values(processes)) {
-        proc.kill('SIGTERM');
+        term.log('process', `Cleaning up process ${proc.pid}`)
+        proc.kill('SIGINT');
     }
 }
 
@@ -33,28 +34,28 @@ function cleanup() {
 if(!isWindows())
 {
     process.on('exit', () => {
-        term.log('process', 'exit')
+        term.log('process', 'shell exiting')
         cleanup()
     });
     process.on('SIGINT', () => {
-        term.log('process', 'SIGINT')
+        term.log('process', 'shell received SIGINT signal')
         cleanup()
     });
     process.on('SIGUSR1', () => {
-        term.log('process', 'SIGUSR1')
+        term.log('process', 'shell received SIGUSR1 signal')
         cleanup()
     });
     process.on('SIGUSR2', () => {
-        term.log('process', 'SIGUSR2')
+        term.log('process', 'shell received SIGUSR2 signal')
         cleanup()
     });
     process.on('uncaughtException', (a) => {
-        term.error('process', `${a}`)
+        term.error('process', `shell uncaught exception: ${a}`)
         cleanup()
         process.exit(1)
     });
     process.on('SIGINT', () => {
-        term.log('process', 'SIGINT')
+        term.log('process', 'shell received SIGINT signal')
         cleanup()
     })
 }
@@ -209,7 +210,6 @@ export class Process {
      * Does nothing if the process is not started.
      */
     async stop(signal?: number) {
-        term.log('process', `stopping ${this._name}`)
         this._curString = '';
 
         if (this._process === undefined) {
@@ -258,7 +258,6 @@ export class Process {
         return this._stopPromise = new Promise<void>((res) => {
             let killed = false;
             const onDestroyed = async () => {
-                term.log('process', `onDestroyed for ${this._name}`)
                 for (const listener of this._onExit) {
                     await listener()
                 }
