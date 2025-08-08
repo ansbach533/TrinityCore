@@ -566,6 +566,15 @@ void WorldUpdateLoop()
 
 void SignalHandler(boost::system::error_code const& error, int /*signalNumber*/)
 {
+    if (error.failed())
+    {
+        TC_LOG_ERROR("server.worldserver", "Received signal: {} and error: {}", signalNumber, error.message());
+    }
+    else
+    {
+        TC_LOG_ERROR("server.worldserver", "Received signal: {}", signalNumber);
+    }
+
     if (!error)
         World::StopNow(SHUTDOWN_EXIT_CODE);
 }
