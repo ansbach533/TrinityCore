@@ -216,6 +216,13 @@ export class Realm {
 
             term.log(this.logName(), `Worldserver exited`)
             if (!isWindows()) {
+                // tracy hackfix, try block because process can be closed already, and process class is broken with this
+                try {
+                    wsys.exec(`kill -9 ${this.worldserver.lastPID}`)
+                } catch (e) {
+
+                }
+
                 const corePath = this.path.join('core').abs()
                 if (corePath.exists()) {
                     const tcDir = ipaths.bin.core.pick(`TrinityCore`).build.pick(this.curBuildType)
