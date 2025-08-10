@@ -99,7 +99,7 @@ export namespace AuthServer {
             ,'debug|release?'
             ,'Starts the local authserver'
             , (args)=>{
-            return start(Identifier.getBuildType(args).Name);
+            return start(Identifier.getBuildType(args, NodeConfig.DefaultBuildType).Name);
         }).addAlias('auth');
     }
 }
