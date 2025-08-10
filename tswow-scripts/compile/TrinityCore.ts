@@ -218,6 +218,7 @@ export namespace TrinityCore {
     }
 
     export async function install(cmake: string, openssl: string, mysql: string, args1: string[]) {
+        bpaths.TrinityCore.mkdir();
         spaths.build_conf.copy(ipaths.bin.build_conf)
         term.log('build','Building TrinityCore');
         const buildTypes = parseBuildTypes(spaths.build_conf).filter(x => args1.includes(x.Name))
