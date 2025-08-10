@@ -237,10 +237,11 @@ export class Realm {
                     // removed so that next crash doesn't accidentally use the last core dump
                     corePath.remove()
 
-                    this.path.readDir().filter(x => x.startsWith(`core-`)).sort().slice(NodeConfig.CoresKept)
+                    this.path.readDir('ABSOLUTE').filter(x => x.basename().startsWith(`core-`)).sort().slice(NodeConfig.CoresKept)
                         .forEach(x => x.remove())
 
-                    this.path.readDir().filter(x => x.startsWith(`stacktrace-`)).sort().slice(NodeConfig.StackTracesKept)
+                    this.path.readDir('ABSOLUTE').filter(x => x.basename().startsWith(`stacktrace-`)).sort().slice(NodeConfig.StackTracesKept)
+                        .forEach(x => x.remove())
                 } else {
                     term.log(this.logName(), `No core was found`)
                 }
@@ -259,11 +260,13 @@ export class Realm {
                 const copyPath = this.path.join(`${filename}-${dateStr}.log`)
                 x.copy(copyPath)
             })
-            this.path.readDir().filter(x => x.startsWith(`Server-`) && x.endsWith(`.log`)).sort().slice(NodeConfig.LogsKept)
+            this.path.readDir('ABSOLUTE').filter(x => x.basename().startsWith(`Server-`) && x.endsWith(`.log`)).sort().slice(NodeConfig.LogsKept)
                 .forEach(x => x.remove())
-            this.path.readDir().filter(x => x.startsWith(`GM-`) && x.endsWith(`.log`)).sort().slice(NodeConfig.LogsKept)
+            this.path.readDir('ABSOLUTE').filter(x => x.basename().startsWith(`GM-`) && x.endsWith(`.log`)).sort().slice(NodeConfig.LogsKept)
                 .forEach(x => x.remove())
-            this.path.readDir().filter(x => x.startsWith(`DBErrors-`) && x.endsWith(`.log`)).sort().slice(NodeConfig.LogsKept)
+            this.path.readDir('ABSOLUTE').filter(x => x.basename().startsWith(`DBErrors-`) && x.endsWith(`.log`)).sort().slice(NodeConfig.LogsKept)
+                .forEach(x => x.remove())
+            this.path.readDir('ABSOLUTE').filter(x => x.basename().startsWith(`anticheat_`) && x.endsWith(`.log`)).sort().slice(NodeConfig.LogsKept)
                 .forEach(x => x.remove())
         })
 
