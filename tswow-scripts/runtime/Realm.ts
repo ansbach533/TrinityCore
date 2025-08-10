@@ -445,6 +445,11 @@ export class Realm {
 
         if (!isWindows()) {
             wsys.exec(`ulimit -c ${NodeConfig.CoreDumpSize}`)
+            // todo: should check what core is instead
+            try {
+                wsys.exec(`echo "core" | sudo tee /proc/sys/kernel/core_pattern`)
+            } catch(e) {
+            }
             wsys.exec(`export ASAN_OPTIONS=${NodeConfig.AsanOptions}`)
         }
 
