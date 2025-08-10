@@ -50,7 +50,7 @@ if(!isWindows())
         cleanup()
     });
     process.on('uncaughtException', (a) => {
-        term.error('process', `shell uncaught exception: ${a}`)
+        term.error('process', `shell uncaught exception: ${a.message}${a.stack ? `\n${a.stack}` : ``}`)
         cleanup()
         process.exit(1)
     });
