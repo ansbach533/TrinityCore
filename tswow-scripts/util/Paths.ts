@@ -28,11 +28,15 @@ export const DATASET_CLIENT_PATCH_LETTER = 'Client.Patch.Letter'
 
 function currentCommitShort()
 {
-    return child_process
-        .execSync('git rev-parse --short HEAD')
-        .toString('utf-8')
-        .trimRight()
-        .trimLeft()
+    try {
+        return child_process
+            .execSync('git rev-parse --short HEAD')
+            .toString('utf-8')
+            .trimRight()
+            .trimLeft()
+    } catch(e) {
+        return 'unknown';
+    }
 }
 
 export function tdbFilename() {
